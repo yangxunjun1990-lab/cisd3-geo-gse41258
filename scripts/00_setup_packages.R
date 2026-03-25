@@ -1,19 +1,19 @@
 #!/usr/bin/env Rscript
 
 # 用途:
-#   安装并加载本项目分析所需 R 包（CRAN + Bioconductor）。
+#   为 GSE41258 分析准备依赖：按需安装并加载 CRAN/Bioconductor 包。
 # 输入:
-#   无（依赖本机/环境中的 R 包安装状态）。
+#   无（仅检查当前 R 环境已安装包）。
 # 输出:
-#   1) 缺失包将被安装
-#   2) 加载所有目标包
+#   1) 缺失依赖将被安装
+#   2) 目标依赖将被加载
 #   3) sessionInfo() 写入 logs/sessionInfo_setup.txt
+# 运行方式:
+#   Rscript scripts/00_setup_packages.R
 
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 
-# -----------------------------
-# 1) 定义目标包
-# -----------------------------
+# 目标 Bioconductor 包
 bioc_packages <- c(
   "GEOquery",
   "limma",
@@ -21,6 +21,7 @@ bioc_packages <- c(
   "hgu133a.db"
 )
 
+# 目标 CRAN 包
 cran_packages <- c(
   "tidyverse",
   "janitor",
@@ -32,48 +33,40 @@ cran_packages <- c(
 
 all_packages <- unique(c(bioc_packages, cran_packages))
 
-# -----------------------------
-# 2) 安装 BiocManager（若缺失）
-# -----------------------------
+# 自动检查 BiocManager，缺失则安装
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
   install.packages("BiocManager")
 }
 
-# -----------------------------
-# 3) 按类型安装缺失包
-# -----------------------------
+# 仅安装缺失的 Bioconductor 包
 installed <- rownames(installed.packages())
-
 missing_bioc <- setdiff(bioc_packages, installed)
 if (length(missing_bioc) > 0) {
   BiocManager::install(missing_bioc, ask = FALSE, update = FALSE)
 }
 
+# 仅安装缺失的 CRAN 包
 installed <- rownames(installed.packages())
 missing_cran <- setdiff(cran_packages, installed)
 if (length(missing_cran) > 0) {
   install.packages(missing_cran)
 }
 
-# -----------------------------
-# 4) 加载所有包
-# -----------------------------
+# 加载所有目标包
 for (pkg in all_packages) {
-  ok <- suppressPackageStartupMessages(
+  loaded <- suppressPackageStartupMessages(
     require(pkg, character.only = TRUE, quietly = TRUE)
   )
-  if (!isTRUE(ok)) {
+  if (!isTRUE(loaded)) {
     stop(sprintf("包加载失败: %s", pkg))
   }
 }
 
-# -----------------------------
-# 5) 输出 sessionInfo
-# -----------------------------
-dir.create("logs", showWarnings = FALSE, recursive = TRUE)
-
-session_info_path <- file.path("logs", "sessionInfo_setup.txt")
-writeLines(capture.output(sessionInfo()), con = session_info_path)
+# 输出 sessionInfo 到相对路径
+logs_dir <- "logs"
+dir.create(logs_dir, recursive = TRUE, showWarnings = FALSE)
+session_info_file <- file.path(logs_dir, "sessionInfo_setup.txt")
+writeLines(capture.output(sessionInfo()), con = session_info_file)
 
 message("依赖包安装与加载完成。")
-message("sessionInfo 已写入: ", session_info_path)
+message("sessionInfo 已写入: ", session_info_file)
